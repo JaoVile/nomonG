@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Map {
+  id         String   @id
+  nome       String
+  eventName  String
+  overlayUrl String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  pois       Poi[]
+}
+
+model Poi {
+  id          String      @id
+  mapId       String
+  map         Map         @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  nome        String
+  tipo        String
+  x           Float
+  y           Float
+  descricao   String?
+  imagemUrl   String?
+  contato     String?
+  corDestaque String?
+  selo        String?
+  nodeId      String?
+  accessCount Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  accesses    PoiAccess[]
+
+  @@index([mapId])
+  @@index([tipo])
+}
+
+model PoiAccess {
+  id        String   @id @default(cuid())
+  poiId     String
+  poi       Poi      @relation(fields: [poiId], references: [id], onDelete: Cascade)
+  source    String?
+  createdAt DateTime @default(now())
+
+  @@index([poiId, createdAt])
+}
+
