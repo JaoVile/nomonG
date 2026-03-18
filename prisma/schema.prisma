@@ -7,46 +7,71 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum PoiType {
+  atividade
+  servico
+  banheiro
+  entrada
+}
+
 model Map {
-  id         String   @id
-  nome       String
-  eventName  String
-  overlayUrl String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  pois       Poi[]
+  id                String   @id
+  nome              String   @map("name")
+  eventName         String
+  overlayUrl        String
+  pixelWidth        Int
+  pixelHeight       Int
+  centerLat         Float
+  centerLng         Float
+  west              Float
+  east              Float
+  south             Float
+  north             Float
+  baseRotationDeg   Float    @default(-15)
+  baseRotationScale Float    @default(1.45)
+  lockMapPosition   Boolean  @default(true)
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  pois              Poi[]
+
+  @@index([active])
+  @@map("MapConfig")
 }
 
 model Poi {
   id          String      @id
-  mapId       String
+  mapId       String      @map("mapConfigId")
   map         Map         @relation(fields: [mapId], references: [id], onDelete: Cascade)
-  nome        String
-  tipo        String
-  x           Float
-  y           Float
-  descricao   String?
-  imagemUrl   String?
-  contato     String?
-  corDestaque String?
-  selo        String?
+  nome        String      @map("name")
+  tipo        PoiType     @map("type")
+  x           Int
+  y           Int
+  descricao   String?     @map("description")
+  imagemUrl   String?     @map("imageUrl")
+  contato     String?     @map("contact")
+  corDestaque String?     @map("accentColor")
+  selo        String?     @map("badge")
   nodeId      String?
-  accessCount Int         @default(0)
+  isActive    Boolean     @default(true)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   accesses    PoiAccess[]
 
-  @@index([mapId])
+  @@index([mapId, isActive])
+  @@index([nome])
   @@index([tipo])
+  @@map("Poi")
 }
 
 model PoiAccess {
   id        String   @id @default(cuid())
   poiId     String
   poi       Poi      @relation(fields: [poiId], references: [id], onDelete: Cascade)
+  sessionId String?
   source    String?
   createdAt DateTime @default(now())
 
   @@index([poiId, createdAt])
+  @@map("PoiAccessEvent")
 }
-

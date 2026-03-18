@@ -164,18 +164,12 @@ poisRouter.post('/:id/access', async (req: Request<{ id: string }>, res, next) =
       return;
     }
 
-    await prisma.$transaction([
-      prisma.poi.update({
-        where: { id: poiId },
-        data: { accessCount: { increment: 1 } },
-      }),
-      prisma.poiAccess.create({
-        data: {
-          poiId,
-          source: source || 'front-map',
-        },
-      }),
-    ]);
+    await prisma.poiAccess.create({
+      data: {
+        poiId,
+        source: source || 'front-map',
+      },
+    });
 
     res.status(204).send();
   } catch (error) {

@@ -15,7 +15,7 @@ mapRouter.get('/bootstrap', async (req, res, next) => {
     const map = await ensureMapExists(mapId);
 
     const pois = await prisma.poi.findMany({
-      where: { mapId: map.id },
+      where: { mapId: map.id, isActive: true },
       orderBy: [{ createdAt: 'asc' }],
     });
 
