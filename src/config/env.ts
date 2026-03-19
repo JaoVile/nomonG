@@ -1,10 +1,11 @@
 import { config } from 'dotenv';
 import { z } from 'zod';
 
-config();
+config({ quiet: true });
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  HOST: z.string().trim().min(1).default('0.0.0.0'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3333),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   ADMIN_API_KEY: z.string().min(1, 'ADMIN_API_KEY is required'),

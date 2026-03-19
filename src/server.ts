@@ -2,8 +2,8 @@ import { env } from './config/env';
 import { prisma } from './lib/prisma';
 import { app } from './app';
 
-const server = app.listen(env.PORT, () => {
-  console.log(`nomonG API running on http://localhost:${env.PORT}`);
+const server = app.listen(env.PORT, env.HOST, () => {
+  console.log(`nomonG API running on http://${env.HOST}:${env.PORT}`);
 });
 
 const shutdown = async (signal: NodeJS.Signals) => {
