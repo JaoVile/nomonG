@@ -21,7 +21,14 @@ CORS_ORIGIN=http://localhost:5173
 DEFAULT_MAP_ID=default_map
 DEFAULT_MAP_NAME=Mapa Interno
 DEFAULT_MAP_EVENT_NAME=GPS Interno
-DEFAULT_MAP_OVERLAY_URL=/maps/mapa-visual.png
+DEFAULT_MAP_OVERLAY_URL=/maps/mapa_oficial.svg
+GOOGLE_MAPS_API_KEY=
+GOOGLE_EVENT_PLACE_ID=
+GOOGLE_EVENT_LABEL=Porto Digital Caruaru
+GOOGLE_EVENT_LAT=-8.282803001403982
+GOOGLE_EVENT_LNG=-35.9658650714576
+GOOGLE_EVENT_RADIUS_METERS=180
+GOOGLE_RESPONSE_LANGUAGE=pt-BR
 ```
 
 ## 2) Install and setup
@@ -50,6 +57,7 @@ npm start
 
 - `GET /health`
 - `GET /api/v1/map/bootstrap?mapId=default_map&includeGraph=false`
+- `POST /api/v1/location/context`
 - `POST /api/v1/pois` (requires header `x-admin-key`)
 - `PATCH /api/v1/pois/:id` (requires header `x-admin-key`)
 - `DELETE /api/v1/pois/:id` (requires header `x-admin-key`)
@@ -60,8 +68,22 @@ npm start
 In `gnostart/.env.local`:
 
 ```env
-VITE_API_BASE_URL=http://localhost:3333
 VITE_MAP_ID=default_map
 VITE_ADMIN_API_KEY=<same value as ADMIN_API_KEY>
 ```
+
+`VITE_API_BASE_URL` is optional.
+
+- Local development: leave it empty and use the Vite proxy to `http://127.0.0.1:3333`.
+- Frontend and backend on different origins: set `VITE_API_BASE_URL=https://api.seu-dominio.com`.
+- Same-origin VPS: keep it empty and reverse-proxy `/api` and `/health` to the backend.
+
+## VPS checklist
+
+- Serve the frontend over HTTPS. Browser geolocation does not work reliably over plain HTTP.
+- Reverse-proxy `/api` and `/health` to the backend running on port `3333`.
+- Keep the frontend on the same origin when possible and leave `VITE_API_BASE_URL` empty in this setup.
+- Keep `GOOGLE_EVENT_LAT`, `GOOGLE_EVENT_LNG` and `GOOGLE_EVENT_RADIUS_METERS` aligned with the real event area.
+- If you want address resolution and external walking routes, configure `GOOGLE_MAPS_API_KEY`.
+- The backend now re-syncs the `default_map` metadata on bootstrap, so overlay and bounds stay aligned with the deployed config.
 
