@@ -1,12 +1,14 @@
 import 'dotenv/config';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import { PrismaClient, type PoiType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 const DEFAULT_MAP_ID = process.env.DEFAULT_MAP_ID || 'default_map';
 const DEFAULT_MAP_NAME = process.env.DEFAULT_MAP_NAME || 'Mapa Interno';
-const DEFAULT_MAP_EVENT_NAME = process.env.DEFAULT_MAP_EVENT_NAME || 'GPS Interno';
-const DEFAULT_MAP_OVERLAY_URL = process.env.DEFAULT_MAP_OVERLAY_URL || '/maps/mapa_oficial.svg';
+const DEFAULT_MAP_EVENT_NAME = process.env.DEFAULT_MAP_EVENT_NAME || 'GNOSTART';
+const DEFAULT_MAP_OVERLAY_URL = process.env.DEFAULT_MAP_OVERLAY_URL || '/maps/mapa_geral.svg';
 const DEFAULT_MAP_PIXEL_WIDTH = 1527;
 const DEFAULT_MAP_PIXEL_HEIGHT = 912;
 const DEFAULT_MAP_CENTER_LAT = -8.282803001403982;
@@ -15,6 +17,10 @@ const DEFAULT_MAP_SPAN_LNG = 0.00092;
 const defaultMapAspectRatio = DEFAULT_MAP_PIXEL_WIDTH / DEFAULT_MAP_PIXEL_HEIGHT;
 const defaultMapLatRadians = (DEFAULT_MAP_CENTER_LAT * Math.PI) / 180;
 const DEFAULT_MAP_SPAN_LAT = (DEFAULT_MAP_SPAN_LNG * Math.cos(defaultMapLatRadians)) / defaultMapAspectRatio;
+const AGENDA_POI_LINKS_STORAGE_PATH = path.resolve(process.cwd(), 'storage', 'agenda-poi-links.json');
+// Fonte canonica compartilhada com o frontend. Os 20 pins devem ser mantidos aqui.
+const FRONTEND_POI_SEED_PATH = path.resolve(process.cwd(), '..', 'gnostart', 'src', 'data', 'locaisEventoSocialSeed.json');
+const EXPECTED_CANONICAL_POI_COUNT = 20;
 
 type SeedPoi = {
   id: string;
@@ -29,239 +35,105 @@ type SeedPoi = {
   nodeId?: string | null;
 };
 
-const DEFAULT_POIS: SeedPoi[] = [
-  {
-    id: 'entrada_principal',
-    nome: 'Entrada Principal',
-    tipo: 'entrada',
-    x: 747,
-    y: 399,
-    descricao: 'Acesso principal do evento para o publico.',
-    imagemUrl: '/images/pois/indicadores/entrada.svg',
-    corDestaque: '#92b98c',
-    selo: 'ENT',
-  },
-  {
-    id: 'credenciamento',
-    nome: 'Credenciamento',
-    tipo: 'servico',
-    x: 777,
-    y: 399,
-    descricao: 'Retirada de pulseiras, orientacoes e apoio inicial.',
-    imagemUrl: '/images/pois/indicadores/apoio.svg',
-    corDestaque: '#8aaed8',
-    selo: 'CRD',
-  },
-  {
-    id: 'entrada_caravanas',
-    nome: 'Entrada Caravanas',
-    tipo: 'entrada',
-    x: 713,
-    y: 328,
-    descricao: 'Acesso reservado para grupos e caravanas.',
-    imagemUrl: '/images/pois/indicadores/entrada.svg',
-    corDestaque: '#a4c49b',
-    selo: 'CAR',
-  },
-  {
-    id: 'palco_principal',
-    nome: 'Palco Principal',
-    tipo: 'atividade',
-    x: 784,
-    y: 342,
-    descricao: 'Area central das palestras e conteudos principais.',
-    imagemUrl: '/images/pois/indicadores/evento.svg',
-    corDestaque: '#d7bf78',
-    selo: 'PAL',
-  },
-  {
-    id: 'banheiros',
-    nome: 'Banheiros',
-    tipo: 'banheiro',
-    x: 764,
-    y: 313,
-    descricao: 'Conjunto de banheiros de apoio ao publico.',
-    imagemUrl: '/images/pois/indicadores/banheiro.svg',
-    corDestaque: '#9bb8df',
-    selo: 'WC',
-  },
-  {
-    id: 'estande_realidade_virtual',
-    nome: 'Estande Realidade Virtual',
-    tipo: 'atividade',
-    x: 733,
-    y: 330,
-    descricao: 'Espaco de demonstracao e experiencia imersiva.',
-    imagemUrl: '/images/pois/indicadores/evento.svg',
-    corDestaque: '#9a8bd9',
-    selo: 'ERV',
-  },
-  {
-    id: 'espaco_instagramavel',
-    nome: 'Espaco Instagramavel',
-    tipo: 'atividade',
-    x: 745,
-    y: 326,
-    descricao: 'Cenario visual para fotos e conteudo do evento.',
-    imagemUrl: '/images/pois/indicadores/evento.svg',
-    corDestaque: '#8f9ddd',
-    selo: 'IGR',
-  },
-  {
-    id: 'area_startups',
-    nome: 'Area das Startups',
-    tipo: 'atividade',
-    x: 797,
-    y: 393,
-    descricao: 'Espaco com as startups participantes do Startup Day.',
-    imagemUrl: '/images/pois/indicadores/evento.svg',
-    corDestaque: '#8576c9',
-    selo: 'STP',
-  },
-  {
-    id: 'barracas_prefeitura',
-    nome: 'Barracas Prefeitura',
-    tipo: 'servico',
-    x: 721,
-    y: 383,
-    descricao: 'Area institucional com os espacos da prefeitura.',
-    imagemUrl: '/images/pois/indicadores/apoio.svg',
-    corDestaque: '#8f98aa',
-    selo: 'PREF',
-  },
-  {
-    id: 'jardim_digital',
-    nome: 'Jardim Digital',
-    tipo: 'servico',
-    x: 733,
-    y: 385,
-    descricao: 'Espaco parceiro voltado a tecnologia e inovacao.',
-    imagemUrl: '/images/pois/indicadores/apoio.svg',
-    corDestaque: '#7fb4ad',
-    selo: 'JD',
-  },
-  {
-    id: 'arena_experiencia',
-    nome: 'Arena Experiencia',
-    tipo: 'atividade',
-    x: 700,
-    y: 371,
-    descricao: 'Area continua com os espacos dos parceiros e ativacoes abertas ao publico ao longo do dia.',
-    imagemUrl: '/images/pois/indicadores/evento.svg',
-    corDestaque: '#9a8bd9',
-    selo: 'ARE',
-  },
-  {
-    id: 'laboratorio_game',
-    nome: 'Laboratório Game',
-    tipo: 'atividade',
-    x: 742,
-    y: 338,
-    descricao: 'Espaco das oficinas GameLab na Arena Porto Digital.',
-    imagemUrl: '/images/pois/indicadores/evento.svg',
-    corDestaque: '#9a8bd9',
-    selo: 'GLB',
-  },
-  {
-    id: 'sala_economia_criativa_01',
-    nome: 'Sala de Economia Criativa 01',
-    tipo: 'servico',
-    x: 665,
-    y: 341,
-    descricao: 'Sala reservada para hotseats e encontros do ecossistema.',
-    imagemUrl: '/images/pois/indicadores/apoio.svg',
-    corDestaque: '#8aaed8',
-    selo: 'EC1',
-  },
-  {
-    id: 'sala_economia_criativa_02',
-    nome: 'Sala de Economia Criativa 02',
-    tipo: 'servico',
-    x: 665,
-    y: 367,
-    descricao: 'Sala reservada para hotseats e encontros do ecossistema.',
-    imagemUrl: '/images/pois/indicadores/apoio.svg',
-    corDestaque: '#7698c8',
-    selo: 'EC2',
-  },
-  {
-    id: 'armazem_da_criatividade_1773977448618',
-    nome: 'Armazem da Criatividade',
-    tipo: 'entrada',
-    x: 813,
-    y: 376,
-    descricao: 'Acesso lateral para o Laboratorio Game e para as salas de Economia Criativa 01 e 02.',
-    imagemUrl: '/images/pois/indicadores/entrada.svg',
-    corDestaque: '#92b98c',
-    selo: 'ARM',
-  },
-  {
-    id: 'senac',
-    nome: 'SENAC',
-    tipo: 'servico',
-    x: 688,
-    y: 331,
-    descricao: 'Espaco da instituicao parceira SENAC.',
-    imagemUrl: '/images/pois/indicadores/apoio.svg',
-    corDestaque: '#8aaed8',
-    selo: 'SNC',
-  },
-  {
-    id: 'senai',
-    nome: 'SENAI',
-    tipo: 'servico',
-    x: 680,
-    y: 374,
-    descricao: 'Espaco da instituicao parceira SENAI.',
-    imagemUrl: '/images/pois/indicadores/apoio.svg',
-    corDestaque: '#7698c8',
-    selo: 'SNI',
-  },
-  {
-    id: 'asces',
-    nome: 'ASCES',
-    tipo: 'servico',
-    x: 680,
-    y: 341,
-    descricao: 'Espaco da instituicao parceira ASCES.',
-    imagemUrl: '/images/pois/indicadores/apoio.svg',
-    corDestaque: '#a7afbc',
-    selo: 'ASC',
-  },
-  {
-    id: 'nassau',
-    nome: 'UNINASSAU',
-    tipo: 'servico',
-    x: 698,
-    y: 393,
-    descricao: 'Espaco da instituicao parceira UNINASSAU.',
-    imagemUrl: '/images/pois/indicadores/apoio.svg',
-    corDestaque: '#ccb36f',
-    selo: 'NAS',
-  },
-  {
-    id: 'credenciamento_caravanas',
-    nome: 'Credenciamento Caravanas',
-    tipo: 'servico',
-    x: 714,
-    y: 341,
-    descricao: 'Atendimento e credenciamento dedicados aos grupos e caravanas.',
-    imagemUrl: '/images/pois/indicadores/apoio.svg',
-    corDestaque: '#7fb4ad',
-    selo: 'CCV',
-  },
-  {
-    id: 'cafeteria_1773957701772',
-    nome: 'CAFETERIA',
-    tipo: 'servico',
-    x: 809,
-    y: 392,
-    imagemUrl: '/images/pois/indicadores/evento.svg',
-  },
-];
-const REMOVED_POI_IDS: string[] = [];
+const VALID_POI_TYPES = new Set<PoiType>(['atividade', 'servico', 'banheiro', 'entrada']);
+
+const sanitizeRequiredString = (value: unknown) => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const sanitizeOptionalString = (value: unknown) => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const sanitizeCoordinate = (value: unknown) => {
+  const numericValue = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(numericValue) ? Math.round(numericValue) : null;
+};
+
+const sanitizePoiType = (value: unknown): PoiType | null => {
+  if (typeof value !== 'string') return null;
+  return VALID_POI_TYPES.has(value as PoiType) ? (value as PoiType) : null;
+};
+
+const sanitizeSeedPoi = (value: unknown): SeedPoi | null => {
+  if (!value || typeof value !== 'object') return null;
+
+  const candidate = value as Record<string, unknown>;
+  const id = sanitizeRequiredString(candidate.id);
+  const nome = sanitizeRequiredString(candidate.nome);
+  const tipo = sanitizePoiType(candidate.tipo);
+  const x = sanitizeCoordinate(candidate.x);
+  const y = sanitizeCoordinate(candidate.y);
+
+  if (!id || !nome || !tipo || x == null || y == null) {
+    return null;
+  }
+
+  return {
+    id,
+    nome,
+    tipo,
+    x,
+    y,
+    descricao: sanitizeOptionalString(candidate.descricao),
+    imagemUrl: sanitizeOptionalString(candidate.imagemUrl),
+    corDestaque: sanitizeOptionalString(candidate.corDestaque),
+    selo: sanitizeOptionalString(candidate.selo),
+    nodeId: sanitizeOptionalString(candidate.nodeId) ?? null,
+  };
+};
+
+const loadCanonicalPoisSeed = async () => {
+  try {
+    const fileContent = await fs.readFile(FRONTEND_POI_SEED_PATH, 'utf8');
+    const parsed = JSON.parse(fileContent) as unknown;
+
+    if (!Array.isArray(parsed)) {
+      console.warn(`Seed canonico invalido em ${FRONTEND_POI_SEED_PATH}. A lista de POIs sera tratada como vazia.`);
+      return [] as SeedPoi[];
+    }
+
+    return parsed
+      .map(sanitizeSeedPoi)
+      .filter((poi): poi is SeedPoi => Boolean(poi));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
+      console.warn(`Seed canonico nao encontrado em ${FRONTEND_POI_SEED_PATH}. A lista de POIs sera tratada como vazia.`);
+      return [] as SeedPoi[];
+    }
+
+    throw error;
+  }
+};
+
+const validateCanonicalPoisSeed = (pois: SeedPoi[]) => {
+  if (pois.length !== EXPECTED_CANONICAL_POI_COUNT) {
+    throw new Error(
+      [
+        `Seed canonico inesperado em ${FRONTEND_POI_SEED_PATH}.`,
+        `Esperado: ${EXPECTED_CANONICAL_POI_COUNT} pins.`,
+        `Encontrado: ${pois.length}.`,
+      ].join(' '),
+    );
+  }
+
+  const uniqueIds = new Set<string>();
+  for (const poi of pois) {
+    if (uniqueIds.has(poi.id)) {
+      throw new Error(`Seed canonico invalido: id duplicado detectado (${poi.id}).`);
+    }
+    uniqueIds.add(poi.id);
+  }
+};
 
 async function main() {
+  const canonicalPois = await loadCanonicalPoisSeed();
+  validateCanonicalPoisSeed(canonicalPois);
+
   const map = await prisma.map.upsert({
     where: { id: DEFAULT_MAP_ID },
     update: {
@@ -293,16 +165,23 @@ async function main() {
     },
   });
 
+  const canonicalPoiIds = canonicalPois.map((poi) => poi.id);
+
   await prisma.poi.deleteMany({
-    where: {
-      mapId: map.id,
-      id: {
-        in: REMOVED_POI_IDS,
-      },
-    },
+    where:
+      canonicalPoiIds.length > 0
+        ? {
+            mapId: map.id,
+            id: {
+              notIn: canonicalPoiIds,
+            },
+          }
+        : {
+            mapId: map.id,
+          },
   });
 
-  for (const poi of DEFAULT_POIS) {
+  for (const poi of canonicalPois) {
     await prisma.poi.upsert({
       where: { id: poi.id },
       update: {
@@ -335,24 +214,17 @@ async function main() {
     });
   }
 
-  await prisma.poi.updateMany({
-    where: {
-      mapId: map.id,
-      id: {
-        in: ['banheiro_masculino', 'banheiro_feminino'],
-      },
-    },
-    data: {
-      isActive: false,
-    },
-  });
+  await fs.mkdir(path.dirname(AGENDA_POI_LINKS_STORAGE_PATH), { recursive: true });
+  await fs.writeFile(AGENDA_POI_LINKS_STORAGE_PATH, JSON.stringify({}, null, 2));
 
-  console.log(`Map "${DEFAULT_MAP_ID}" and ${DEFAULT_POIS.length} POIs seeded successfully.`);
+  console.log(
+    `Map "${DEFAULT_MAP_ID}" synced with ${canonicalPois.length} canonical POIs from ${path.basename(FRONTEND_POI_SEED_PATH)}.`,
+  );
 }
 
 main()
   .catch((error) => {
-    console.error('Error while seeding database:', error);
+    console.error(error);
     process.exitCode = 1;
   })
   .finally(async () => {

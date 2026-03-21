@@ -1,18 +1,14 @@
 import { Router } from 'express';
-import { z } from 'zod';
 import { env } from '../config/env';
 import { prisma } from '../lib/prisma';
-import { requireAdminApiKey } from '../security/admin';
-import { loadAgendaPoiLinks, saveAgendaPoiLinks } from '../utils/agendaPoiLinks';
+import { loadAgendaPoiLinks } from '../utils/agendaPoiLinks';
 import { toMapPoiDto } from '../utils/poiMapper';
 import { queryBoolean, queryString } from '../utils/query';
 import { ensureMapExists } from '../utils/maps';
 
 export const mapRouter = Router();
 
-const agendaPoiLinksSchema = z.object({
-  links: z.record(z.string().trim().min(1), z.string().trim().min(1)),
-});
+const adminModeRemovedMessage = { message: 'Admin mode has been removed from this project.' };
 
 const buildBootstrapFallbackResponse = (mapId: string, includeGraph: boolean) => {
   const response: {
@@ -46,14 +42,17 @@ const buildBootstrapFallbackResponse = (mapId: string, includeGraph: boolean) =>
 mapRouter.get('/bootstrap', async (req, res, next) => {
   const mapId = queryString(req.query.mapId, env.DEFAULT_MAP_ID);
   const includeGraph = queryBoolean(req.query.includeGraph, false);
+  const includePois = queryBoolean(req.query.includePois, false);
 
   try {
     const map = await ensureMapExists(mapId);
 
-    const pois = await prisma.poi.findMany({
-      where: { mapId: map.id, isActive: true },
-      orderBy: [{ createdAt: 'asc' }],
-    });
+    const pois = includePois
+      ? await prisma.poi.findMany({
+          where: { mapId: map.id, isActive: true },
+          orderBy: [{ createdAt: 'asc' }],
+        })
+      : [];
     const agendaPoiLinks = await loadAgendaPoiLinks();
 
     const response: {
@@ -97,13 +96,6 @@ mapRouter.get('/agenda-links', async (_req, res, next) => {
   }
 });
 
-mapRouter.put('/agenda-links', requireAdminApiKey, async (req, res, next) => {
-  try {
-    const payload = agendaPoiLinksSchema.parse(req.body);
-    const links = await saveAgendaPoiLinks(payload.links);
-    res.json({ links });
-  } catch (error) {
-    next(error);
-  }
+mapRouter.put('/agenda-links', (_req, res) => {
+  res.status(410).json(adminModeRemovedMessage);
 });
-

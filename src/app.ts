@@ -6,7 +6,6 @@ import morgan from 'morgan';
 import { ZodError } from 'zod';
 import { env } from './config/env';
 import { healthRouter } from './routes/health';
-import { locationRouter } from './routes/location';
 import { mapRouter } from './routes/map';
 import { poisRouter } from './routes/pois';
 
@@ -58,7 +57,6 @@ app.get('/', (_req, res) => {
 
 app.use('/health', healthRouter);
 app.use('/api/v1/health', healthRouter);
-app.use('/api/v1/location', locationRouter);
 app.use('/api/v1/map', mapRouter);
 app.use('/api/v1/pois', poisRouter);
 
